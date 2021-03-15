@@ -1,4 +1,4 @@
-# expect_test
+# Switchexpect
 
 Call this script with username and passwords as parameters.
 
