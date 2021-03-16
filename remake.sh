@@ -1,6 +1,11 @@
 #!/usr/bin/expect 
 # Set up various other variables here ($user, $password)
 
+if {[llength $argv] == 0} {
+  send_user "\nUsage: scriptname username password\n\n"
+  exit 1
+}
+
 set prompt "# "
 set user [lindex $argv 0]
 set password [lindex $argv 1]
@@ -11,11 +16,16 @@ set failed_telnets [open ./$failed_telnet_logfile w+]
 set failed_ssh [open ./failed-ssh.log w+]
 set tracelog [open ./switchexpect.log w+]
 
-# include is similar to grep
 
+# This will read and execute all commands from commands.txt
 proc run_batch { host } {
   global tracelog prompt
   puts $tracelog "---- $host batchjob ---------------------\n\r"
+
+  if {[file size ./commands.txt] == 0} {
+      send_user "The command file are empty. Terminated\n\n"
+      exit
+  }
 
   set commands [open ./commands.txt r]
   while {[gets $commands cmd] != -1} {
@@ -100,7 +110,8 @@ close $failed_telnets
 # Check if the result from telnet tests above logged
 # any ip addresses that we need to test with SSH against
 if {[file size $failed_telnet_logfile] == 0} {
-  exit
+    puts $tracelog "Done: No hosts to test with SSH"
+    exit
 }
 
 puts "SSH method\r"
@@ -110,58 +121,61 @@ puts "SSH method\r"
 set fp [open $failed_telnet_logfile r]
 while {[gets $fp ip] != -1} {
 
-  puts "\rSSH till $ip\r"
+  send_user "\rSSH till $ip\r"
 
   # Try to connect
   spawn -noecho /usr/bin/ssh -o StrictHostKeyChecking=no $user@$ip
 
   expect {
 
-    timeout {
-      puts $tracelog "$ip SSH: Failed with timeout"
-      puts $failed_ssh $ip
-      flush $failed_ssh
+      "Host is down" {
+         puts $tracelog "$ip SSH: Host is down"
+      }
+
+      timeout {
+        puts $tracelog "$ip SSH: Failed with timeout"
+        puts $failed_ssh $ip
+        flush $failed_ssh
+      }
+
+      $prompt {
+         run_batch $ip
+         send "exit\r"
+      }
+  
+      -re "Password|password" {
+  
+        puts "Fick lösenordsfråga\r"
+        send "$password\r"
+  
+         expect {
+             $prompt {
+                run_batch $ip
+                puts $tracelog "$ip SSH: command execution OK"
+                send "exit\r"
+             }
+             -re "denied|Login incorrect|Connection closed" {
+               puts $tracelog "$ip SSH: Failed"
+               puts $failed_ssh $ip
+               flush $failed_ssh
+             }
+       
+             -re "Password|password" {
+               puts "Fick ny lösenordsfråga\r"
+               puts $tracelog "$ip SSH: Failed password"
+               flush $failed_ssh
+             }
+            timeout {
+               puts $failed_ssh $ip
+               puts $tracelog "$ip SSH: Failed with timeout 2"
+               flush $failed_ssh
+             }
+       
+         }
+  
+      }
+  
     }
-# Check if the result from telnet tests above logged
-# any ip addresses that we need to test with SSH against
-    $prompt {
-       run_batch $ip
-       send "exit\r"
-    }
-
-    -re "Password|password" {
-
-      puts "Fick lösenordsfråga\r"
-      send "$password\r"
-
-       expect {
-           $prompt {
-              run_batch $ip
-              puts $tracelog "$ip SSH: command execution OK"
-              send "exit\r"
-           }
-           -re "denied|Login incorrect|Connection closed" {
-             puts $tracelog "$ip SSH: Failed"
-             puts $failed_ssh $ip
-             flush $failed_ssh
-           }
-     
-           -re "Password|password" {
-             puts "Fick ny lösenordsfråga\r"
-             puts $tracelog "$ip SSH: Failed password"
-             flush $failed_ssh
-           }
-          timeout {
-             puts $failed_ssh $ip
-             puts $tracelog "$ip SSH: Failed with timeout 2"
-             flush $failed_ssh
-           }
-     
-       }
-
-    }
-
-  }
 
 }
 
