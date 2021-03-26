@@ -15,23 +15,24 @@ set failed_telnet_logfile "failed-telnet.log"
 set failed_telnets [open ./$failed_telnet_logfile w+]
 set failed_ssh [open ./failed-ssh.log w+]
 set tracelog [open ./switchexpect.log w+]
+set batchlog [open ./batch.log w+]
 
 
 # This will read and execute all commands from commands.txt
 proc run_batch { host } {
-  global tracelog prompt
+  global tracelog prompt batchlog
 
   if {[file size ./commands.txt] != 0} {
-      puts $tracelog "---- $host batchjob ---------------------\n\r"
+      puts $batchlog "---- $host batchjob ---------------------\n\r"
       send_user "Executing commands for ip $host\n\n"
 
       set commands [open ./commands.txt r]
       while {[gets $commands cmd] != -1} {
           send "$cmd\r"
           expect $prompt
-          puts $tracelog $expect_out(buffer)
+          puts $batchlog $expect_out(buffer)
       }
-      puts $tracelog "-----------------------------------------\n\r"
+      puts $batchlog "-----------------------------------------\n\r"
   }
 
 }
