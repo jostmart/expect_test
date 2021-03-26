@@ -20,9 +20,9 @@ set tracelog [open ./switchexpect.log w+]
 # This will read and execute all commands from commands.txt
 proc run_batch { host } {
   global tracelog prompt
-  puts $tracelog "---- $host batchjob ---------------------\n\r"
 
   if {[file size ./commands.txt] != 0} {
+      puts $tracelog "---- $host batchjob ---------------------\n\r"
       send_user "Executing commands for ip $host\n\n"
 
       set commands [open ./commands.txt r]
@@ -33,17 +33,9 @@ proc run_batch { host } {
       }
       puts $tracelog "-----------------------------------------\n\r"
   }
+
 }
 
-proc show_username { host } {
-  send "sh run | include username\r"
-  expect $prompt
-
-  # Överför resultatet från körningen till en lokal parameter (resultat)
-  set resultat $expect_out(buffer)
-
-  puts $resultat
-}
 
 
 set fp [open hosts.txt r]
@@ -55,7 +47,6 @@ while {[gets $fp ip] != -1} {
   # Handle connection result
   expect {
     -re "Operation timed out|Unable to connect to remote host|Connection refused" {
-        puts $tracelog "$ip telnet failed (network errors)"
         puts $failed_telnets $ip
         flush $failed_telnets
     }
@@ -78,12 +69,11 @@ while {[gets $fp ip] != -1} {
             $prompt {
                 run_batch $ip
                 send "exit\r"
-                puts $tracelog "$ip telnet command exection done"
+                #puts $tracelog "$ip telnet command exection done"
             }
 
             -re "Login incorrect|Login invalid" {
                 puts $failed_telnets $ip
-                puts $tracelog "$ip telnet login failed"
                 flush $failed_telnets
             }
         }
@@ -91,7 +81,7 @@ while {[gets $fp ip] != -1} {
     }
     timeout {
       puts $failed_telnets $ip
-      puts $tracelog "$ip telnet timeout"
+      #puts $tracelog "$ip telnet timeout"
       flush $failed_telnets
     }
   }
@@ -108,11 +98,12 @@ close $failed_telnets
 # Check if the result from telnet tests above logged
 # any ip addresses that we need to test with SSH against
 if {[file size $failed_telnet_logfile] == 0} {
-    puts $tracelog "Done: No hosts to test with SSH"
+    #puts $tracelog "Done: No hosts to test with SSH"
+    puts "Done: No hosts to test with SSH"
     exit
 }
 
-puts "SSH method\r"
+puts "Testar med SSH\r"
 
 
 # SSH method
