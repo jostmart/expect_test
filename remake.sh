@@ -6,7 +6,7 @@ if {[llength $argv] == 0} {
   exit 1
 }
 
-set prompt "# "
+set prompt "#"
 set user [lindex $argv 0]
 set password [lindex $argv 1]
 set failed_telnet_logfile "failed-telnet.log"
@@ -22,20 +22,17 @@ proc run_batch { host } {
   global tracelog prompt
   puts $tracelog "---- $host batchjob ---------------------\n\r"
 
-  if {[file size ./commands.txt] == 0} {
-      send_user "The command file are empty. Terminated\n\n"
-      exit
-  }
+  if {[file size ./commands.txt] != 0} {
+      send_user "Executing commands for ip $host\n\n"
 
-  set commands [open ./commands.txt r]
-  while {[gets $commands cmd] != -1} {
-      send "$cmd\r"
-      expect $prompt
-      
-      puts $tracelog $expect_out(buffer)
+      set commands [open ./commands.txt r]
+      while {[gets $commands cmd] != -1} {
+          send "$cmd\r"
+          expect $prompt
+          puts $tracelog $expect_out(buffer)
+      }
+      puts $tracelog "-----------------------------------------\n\r"
   }
-  puts $tracelog "-----------------------------------------\n\r"
-
 }
 
 proc show_username { host } {
@@ -66,6 +63,7 @@ while {[gets $fp ip] != -1} {
     "Password: " {
         send "$password\r"
 	expect $prompt
+        puts $tracelog "$ip telnet OK"
         run_batch $ip
     }
 
@@ -78,7 +76,7 @@ while {[gets $fp ip] != -1} {
 
         expect {
             $prompt {
-                run_commands $ip
+                run_batch $ip
                 send "exit\r"
                 puts $tracelog "$ip telnet command exection done"
             }
@@ -139,6 +137,7 @@ while {[gets $fp ip] != -1} {
       }
 
       $prompt {
+         puts $tracelog "$ip SSH Login OK"
          run_batch $ip
          send "exit\r"
       }
@@ -150,8 +149,8 @@ while {[gets $fp ip] != -1} {
   
          expect {
              $prompt {
+                puts $tracelog "$ip SSH Login OK"
                 run_batch $ip
-                puts $tracelog "$ip SSH: command execution OK"
                 send "exit\r"
              }
              -re "denied|Login incorrect|Connection closed" {
